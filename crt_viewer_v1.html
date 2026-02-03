@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CRT Pixel Art Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00ff88, #00ddff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 20px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            background: #252525;
+            border-color: #00ff88;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .viewer-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        /* Mobile: Stack vertically */
+        @media (max-width: 768px) {
+            .viewer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Desktop: Side by side */
+        @media (min-width: 769px) {
+            .viewer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .viewer-panel {
+            background: #151515;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 13px;
+            font-weight: 600;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header .label {
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-header .info {
+            font-size: 11px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .image-container {
+            position: relative;
+            min-height: 300px;
+            background: 
+                repeating-conic-gradient(#1a1a1a 0% 25%, #151515 0% 50%) 
+                50% / 20px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 600px;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        .canvas-container {
+            position: relative;
+            min-height: 300px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 600px;
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        .placeholder {
+            position: absolute;
+            text-align: center;
+            color: #444;
+            pointer-events: none;
+        }
+
+        .placeholder-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        .placeholder-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 6px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background: #252525;
+            border-color: #00ff88;
+        }
+
+        .zoom-level {
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            color: #888;
+            font-size: 12px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CRT Pixel Art Viewer</h1>
+            <div class="subtitle">Authentic CRT display simulation</div>
+        </header>
+
+        <!-- Info banner for WASM status -->
+        <div id="wasmBanner" style="display: none; background: #2a1a1a; border: 1px solid #ff8800; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: start; gap: 12px;">
+                <div style="font-size: 20px;">ℹ️</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px; color: #ff8800;">Using Fallback Pixel Detection</div>
+                    <div style="font-size: 13px; color: #ccc;">Advanced WASM pixel snapping is not available in this sandboxed environment. <strong>Download this HTML file and open it locally to unlock full WASM support!</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <label class="btn">
+                📁 Load Pixel Art
+                <input type="file" accept="image/*" id="pixelArtInput">
+            </label>
+            <label class="btn">
+                🎯 Load Reference Image
+                <input type="file" accept="image/*" id="referenceInput">
+            </label>
+            <label class="btn" style="background: linear-gradient(135deg, #1a1a1a, #2a1a2a); border-color: #00ff88;">
+                ✨ Load Combined Image
+                <input type="file" accept="image/*" id="combinedInput">
+            </label>
+        </div>
+
+        <div id="scaleDebugPanel" style="display: none; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-size: 12px; color: #888; margin-bottom: 4px;">Auto-detected Scale</div>
+                    <div id="detectedScale" style="font-size: 20px; font-weight: bold; color: #00ff88;">?</div>
+                    <div id="scaleDetails" style="font-size: 11px; color: #666; margin-top: 4px;"></div>
+                </div>
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="font-size: 12px; color: #888; display: block; margin-bottom: 4px;">Manual Scale Override</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="manualScale" min="1" max="20" value="1" style="width: 80px; background: #0a0a0a; border: 1px solid #333; color: white; padding: 6px; border-radius: 4px; font-size: 14px;">
+                        <button id="applyScale" style="padding: 6px 16px; background: #00ff88; color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Apply</button>
+                        <button id="redetectScale" style="padding: 6px 16px; background: #333; color: #fff; border: none; border-radius: 4px; cursor: pointer;">Re-detect</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="scaleControls" style="display: none; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <div style="margin-bottom: 12px;">
+                <strong style="color: #00ff88;">🔍 Scale Detection</strong>
+                <span id="detectedScale" style="margin-left: 12px; color: #888;"></span>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <label style="color: #aaa; font-size: 14px;">Manual Scale Override:</label>
+                <input type="number" id="manualScale" min="1" max="20" value="1" 
+                       style="width: 80px; padding: 6px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; color: #e0e0e0;">
+                <button id="applyScale" class="btn" style="flex: 0; min-width: auto; padding: 6px 16px;">
+                    Apply Scale
+                </button>
+                <span style="color: #666; font-size: 12px;">Try values between 1-20 if auto-detection is wrong</span>
+            </div>
+        </div>
+
+        <div class="viewer-grid">
+            <!-- Reference Image (Top on mobile, Left on desktop) -->
+            <div class="viewer-panel">
+                <div class="panel-header">
+                    <span class="label">Reference Image</span>
+                    <span class="info" id="refInfo">No image loaded</span>
+                </div>
+                <div class="image-container" id="referenceContainer">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">🎯</div>
+                        <div class="placeholder-text">Load a reference CRT image</div>
+                    </div>
+                    <img id="referenceImage" style="display: none;" />
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" id="refZoomOut" title="Zoom Out (-)">−</button>
+                        <div class="zoom-level" id="refZoomLevel" title="Scroll wheel to zoom">100%</div>
+                        <button class="zoom-btn" id="refZoomIn" title="Zoom In (+)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CRT Preview (Bottom on mobile, Right on desktop) -->
+            <div class="viewer-panel">
+                <div class="panel-header">
+                    <span class="label">CRT Preview</span>
+                    <span class="info" id="previewInfo">No image loaded</span>
+                </div>
+                <div class="canvas-container" id="canvasContainer">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">📺</div>
+                        <div class="placeholder-text">Load pixel art to preview</div>
+                    </div>
+                    <canvas id="crtCanvas"></canvas>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" id="zoomOut" title="Zoom Out (-)">−</button>
+                        <div class="zoom-level" id="zoomLevel" title="Scroll wheel or +/- keys to zoom">100%</div>
+                        <button class="zoom-btn" id="zoomIn" title="Zoom In (+)">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CRT Parameters Panel -->
+        <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 20px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #00ff88;">CRT Effect Parameters</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 14px; color: #e0e0e0;">RGB Sub-Pixel Mask</label>
+                    <input 
+                        type="number" 
+                        id="rgbMaskInput" 
+                        min="0" 
+                        max="1" 
+                        step="0.1" 
+                        value="0.8"
+                        style="width: 80px; background: #0a0a0a; border: 1px solid #555; color: white; padding: 6px; border-radius: 4px; font-size: 13px;"
+                    >
+                </div>
+                <input 
+                    type="range" 
+                    id="rgbMaskSlider" 
+                    min="0" 
+                    max="1" 
+                    step="0.05" 
+                    value="0.8"
+                    style="width: 100%; height: 6px; background: #444; outline: none; border-radius: 3px; cursor: pointer;"
+                >
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Simulates the RGB phosphor triads on a CRT. Each pixel is split into Red, Green, and Blue vertical bars.</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 14px; color: #e0e0e0;">Phosphor Gap</label>
+                    <input 
+                        type="number" 
+                        id="phosphorGapInput" 
+                        min="0" 
+                        max="0.5" 
+                        step="0.05" 
+                        value="0.15"
+                        style="width: 80px; background: #0a0a0a; border: 1px solid #555; color: white; padding: 6px; border-radius: 4px; font-size: 13px;"
+                    >
+                </div>
+                <input 
+                    type="range" 
+                    id="phosphorGapSlider" 
+                    min="0" 
+                    max="0.5" 
+                    step="0.01" 
+                    value="0.15"
+                    style="width: 100%; height: 6px; background: #444; outline: none; border-radius: 3px; cursor: pointer;"
+                >
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Space between RGB phosphor strips. Real CRTs have slight separation between the red, green, and blue phosphors.</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 14px; color: #e0e0e0;">Phosphor Roundness</label>
+                    <input 
+                        type="number" 
+                        id="phosphorRoundnessInput" 
+                        min="0" 
+                        max="1" 
+                        step="0.1" 
+                        value="0.5"
+                        style="width: 80px; background: #0a0a0a; border: 1px solid #555; color: white; padding: 6px; border-radius: 4px; font-size: 13px;"
+                    >
+                </div>
+                <input 
+                    type="range" 
+                    id="phosphorRoundnessSlider" 
+                    min="0" 
+                    max="1" 
+                    step="0.05" 
+                    value="0.5"
+                    style="width: 100%; height: 6px; background: #444; outline: none; border-radius: 3px; cursor: pointer;"
+                >
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Controls the edge softness of phosphor strips. 0 = sharp rectangular, 1 = soft rounded edges like real CRT phosphors.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WASM state
+        let pixelSnapWorker = null;
+        let wasmAvailable = false;
+        
+        // Try to create inline worker (works when downloaded locally, fails in Claude sandbox)
+        try {
+            const workerCode = `
+                // Hosted WASM URL
+                const WASM_URL = 'https://www.spritefusion.com/_app/immutable/workers/assets/spritefusion_pixel_snapper_bg-B54QY3P4.wasm';
+                
+                let s,o=null;function f(){return(o===null||o.byteLength===0)&&(o=new Uint8Array(s.memory.buffer)),o}let c=new TextDecoder("utf-8",{ignoreBOM:!0,fatal:!0});c.decode();const y=2146435072;let _=0;function d(e,t){return _+=t,_>=y&&(c=new TextDecoder("utf-8",{ignoreBOM:!0,fatal:!0}),c.decode(),_=t),c.decode(f().subarray(e,e+t))}function u(e,t){return e=e>>>0,d(e,t)}let g=0;function p(e,t){const n=t(e.length*1,1)>>>0;return f().set(e,n/1),g=e.length,n}function m(e){return e==null}function A(e){const t=s.__wbindgen_externrefs.get(e);return s.__externref_table_dealloc(e),t}function h(e,t){return e=e>>>0,f().subarray(e/1,e/1+t)}function R(e,t){const n=p(e,s.__wbindgen_malloc),r=g,i=s.process_image(n,r,m(t)?4294967297:t>>>0);if(i[3])throw A(i[2]);var a=h(i[0],i[1]).slice();return s.__wbindgen_free(i[0],i[1]*1,1),a}const E=typeof FinalizationRegistry>"u"?{register:()=>{},unregister:()=>{}}:new FinalizationRegistry(e=>s.__wbg_config_free(e>>>0,1));class l{__destroy_into_raw(){const t=this.__wbg_ptr;return this.__wbg_ptr=0,E.unregister(this),t}free(){const t=this.__destroy_into_raw();s.__wbg_config_free(t,0)}get k_colors(){return s.__wbg_get_config_k_colors(this.__wbg_ptr)>>>0}set k_colors(t){s.__wbg_set_config_k_colors(this.__wbg_ptr,t)}}Symbol.dispose&&(l.prototype[Symbol.dispose]=l.prototype.free);const S=new Set(["basic","cors","default"]);async function W(e,t){if(typeof Response=="function"&&e instanceof Response){if(typeof WebAssembly.instantiateStreaming=="function")try{return await WebAssembly.instantiateStreaming(e,t)}catch(r){if(e.ok&&S.has(e.type)&&e.headers.get("Content-Type")!=="application/wasm")console.warn("\`WebAssembly.instantiateStreaming\` failed because your server does not serve Wasm with \`application/wasm\` MIME type. Falling back to \`WebAssembly.instantiate\` which is slower. Original error:\\n",r);else throw r}const n=await e.arrayBuffer();return await WebAssembly.instantiate(n,t)}else{const n=await WebAssembly.instantiate(e,t);return n instanceof WebAssembly.Instance?{instance:n,module:e}:n}}function T(){const e={};return e.wbg={},e.wbg.__wbg___wbindgen_throw_b855445ff6a94295=function(t,n){throw new Error(u(t,n))},e.wbg.__wbindgen_cast_2241b6af4c4b2941=function(t,n){return u(t,n)},e.wbg.__wbindgen_init_externref_table=function(){const t=s.__wbindgen_externrefs,n=t.grow(4);t.set(0,void 0),t.set(n+0,void 0),t.set(n+1,null),t.set(n+2,!0),t.set(n+3,!1)},e}function x(e,t){return s=e.exports,b.__wbindgen_wasm_module=t,o=null,s.__wbindgen_start(),s}async function b(e){if(s!==void 0)return s;typeof e<"u"&&(Object.getPrototypeOf(e)===Object.prototype?{module_or_path:e}=e:console.warn("using deprecated parameters for the initialization function; pass a single object instead")),typeof e>"u"&&(e=WASM_URL);const t=T();(typeof e=="string"||typeof Request=="function"&&e instanceof Request||typeof URL=="function"&&e instanceof URL)&&(e=fetch(e));const{instance:n,module:r}=await W(await e,t);return x(n,r)}let w=!1;self.onmessage=async function(e){const{id:t,imageData:n,kColors:r}=e.data;try{w||(await b(),w=!0);const i=new Uint8Array(n),a=R(i,r),M={id:t,success:!0,result:Array.from(a)};self.postMessage(M)}catch(i){const a={id:t,success:!1,error:i.toString()};self.postMessage(a)}}
+            `;
+            
+            // Create blob URL for the worker
+            const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+            const workerUrl = URL.createObjectURL(workerBlob);
+            
+            // Initialize Web Worker for pixel snapping
+            pixelSnapWorker = new Worker(workerUrl);
+            wasmAvailable = true;
+            console.log('✅ WASM worker initialized successfully!');
+            
+            // Hide info banner since WASM is available
+            const banner = document.getElementById('wasmBanner');
+            if (banner) banner.style.display = 'none';
+            
+        } catch (error) {
+            console.warn('⚠️ WASM worker not available (sandboxed environment):', error.message);
+            console.log('📝 Using fallback pixel detection. Download this HTML file to unlock full WASM support.');
+            wasmAvailable = false;
+            
+            // Show info banner
+            const banner = document.getElementById('wasmBanner');
+            if (banner) banner.style.display = 'block';
+        }
+        
+        // WebGL Shaders (Basic for now - just rendering the texture)
+        const vertexShaderSource = `
+            attribute vec2 position;
+            varying vec2 vUv;
+            void main() {
+                vUv = position * 0.5 + 0.5;
+                vUv.y = 1.0 - vUv.y;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision mediump float;
+            uniform sampler2D uTexture;
+            uniform vec2 uResolution;      // Canvas resolution (3x width for RGB)
+            uniform vec2 uSourceResolution; // Source pixel art resolution
+            uniform float uRGBMaskStrength; // Strength of RGB sub-pixel mask (0-1)
+            uniform float uPhosphorGap;     // Gap between phosphor strips (0-1)
+            uniform float uPhosphorRoundness; // Roundness of phosphor edges (0-1)
+            varying vec2 vUv;
+            
+            void main() {
+                // Sample the texture
+                vec3 col = texture2D(uTexture, vUv).rgb;
+                
+                // RGB SUB-PIXEL MASK WITH REALISTIC PHOSPHOR STRIPS
+                if (uRGBMaskStrength > 0.0) {
+                    // Get the x position in canvas pixels
+                    float xPos = gl_FragCoord.x;
+                    
+                    // Each source pixel occupies 3 canvas pixels
+                    // Get position within the 3-pixel group (0.0 to 3.0)
+                    float posInGroup = mod(xPos, 3.0);
+                    
+                    // Define which phosphor we're in
+                    vec3 mask = vec3(0.0);
+                    float phosphorIntensity = 0.0;
+                    
+                    // Calculate gap size (in pixels, typically 0.1 to 0.3)
+                    float gapSize = uPhosphorGap * 0.5; // Half gap on each side
+                    
+                    // Red phosphor (0.0 to 1.0)
+                    if (posInGroup < 1.0) {
+                        // Distance from center of red strip (0.5)
+                        float distFromCenter = abs(posInGroup - 0.5);
+                        // Usable width after accounting for gaps
+                        float stripWidth = 0.5 - gapSize;
+                        
+                        if (distFromCenter < stripWidth) {
+                            // Inside the phosphor strip
+                            // Apply roundness to edges
+                            float edgeDist = (stripWidth - distFromCenter) / stripWidth;
+                            phosphorIntensity = mix(edgeDist, 1.0, 1.0 - uPhosphorRoundness);
+                            phosphorIntensity = smoothstep(0.0, 0.3, phosphorIntensity);
+                            mask = vec3(1.0, 0.0, 0.0);
+                        }
+                    }
+                    // Green phosphor (1.0 to 2.0)
+                    else if (posInGroup < 2.0) {
+                        float distFromCenter = abs(posInGroup - 1.5);
+                        float stripWidth = 0.5 - gapSize;
+                        
+                        if (distFromCenter < stripWidth) {
+                            float edgeDist = (stripWidth - distFromCenter) / stripWidth;
+                            phosphorIntensity = mix(edgeDist, 1.0, 1.0 - uPhosphorRoundness);
+                            phosphorIntensity = smoothstep(0.0, 0.3, phosphorIntensity);
+                            mask = vec3(0.0, 1.0, 0.0);
+                        }
+                    }
+                    // Blue phosphor (2.0 to 3.0)
+                    else {
+                        float distFromCenter = abs(posInGroup - 2.5);
+                        float stripWidth = 0.5 - gapSize;
+                        
+                        if (distFromCenter < stripWidth) {
+                            float edgeDist = (stripWidth - distFromCenter) / stripWidth;
+                            phosphorIntensity = mix(edgeDist, 1.0, 1.0 - uPhosphorRoundness);
+                            phosphorIntensity = smoothstep(0.0, 0.3, phosphorIntensity);
+                            mask = vec3(0.0, 0.0, 1.0);
+                        }
+                    }
+                    
+                    // Apply mask with intensity and strength control
+                    vec3 maskedColor = col * mask * phosphorIntensity;
+                    col = mix(col, maskedColor, uRGBMaskStrength);
+                }
+                
+                gl_FragColor = vec4(col, 1.0);
+            }
+        `;
+
+        // State
+        let gl, program, texture;
+        let pixelArtImage = null;
+        let zoom = 1.0;
+        
+        // CRT Effect Parameters
+        let crtParams = {
+            rgbMaskStrength: 0.8,    // RGB sub-pixel mask intensity
+            phosphorGap: 0.15,        // Gap between phosphor strips (0-1)
+            phosphorRoundness: 0.5    // Roundness of phosphor edges (0-1)
+        };
+        let refZoom = 1.0;
+        let currentPixelArtData = null; // Store the extracted pixel art ImageData for reprocessing
+        let currentCRTImage = null; // Store the CRT reference image
+        let currentPixelArtFull = null; // Store full-res pixel art for reprocessing
+        let detectedScale = 1;
+
+        // Initialize WebGL
+        function initWebGL() {
+            const canvas = document.getElementById('crtCanvas');
+            gl = canvas.getContext('webgl');
+            
+            if (!gl) {
+                alert('WebGL not supported');
+                return;
+            }
+
+            // Create shaders
+            const vertShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertShader, vertexShaderSource);
+            gl.compileShader(vertShader);
+
+            const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragShader, fragmentShaderSource);
+            gl.compileShader(fragShader);
+
+            // Create program
+            program = gl.createProgram();
+            gl.attachShader(program, vertShader);
+            gl.attachShader(program, fragShader);
+            gl.linkProgram(program);
+            gl.useProgram(program);
+
+            // Setup geometry
+            const buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1,
+                1, -1,
+                -1, 1,
+                -1, 1,
+                1, -1,
+                1, 1
+            ]), gl.STATIC_DRAW);
+
+            const positionLocation = gl.getAttribLocation(program, 'position');
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+            // Create texture
+            texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            // Use NEAREST filtering for sharp pixel art
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        }
+
+        // Render loop
+        function render() {
+            if (!pixelArtImage) return;
+
+            const canvas = gl.canvas;
+            // Render at 3x resolution to show RGB sub-pixels while maintaining aspect ratio
+            canvas.width = pixelArtImage.width * 3;
+            canvas.height = pixelArtImage.height * 3;
+
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.useProgram(program);
+
+            // Update texture
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixelArtImage);
+
+            // Set uniforms
+            gl.uniform1i(gl.getUniformLocation(program, 'uTexture'), 0);
+            gl.uniform2f(gl.getUniformLocation(program, 'uResolution'), canvas.width, canvas.height);
+            gl.uniform2f(gl.getUniformLocation(program, 'uSourceResolution'), pixelArtImage.width, pixelArtImage.height);
+            gl.uniform1f(gl.getUniformLocation(program, 'uRGBMaskStrength'), crtParams.rgbMaskStrength);
+            gl.uniform1f(gl.getUniformLocation(program, 'uPhosphorGap'), crtParams.phosphorGap);
+            gl.uniform1f(gl.getUniformLocation(program, 'uPhosphorRoundness'), crtParams.phosphorRoundness);
+            
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            updateZoomDisplay();
+        }
+
+        // Update zoom display
+        function updateZoomDisplay() {
+            document.getElementById('zoomLevel').textContent = Math.round(zoom * 100) + '%';
+        }
+
+        // Detect pixel art scale factor with tolerance for blurred edges
+        function detectPixelArtScale(imageData, maxScale = 20) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            console.log('═══════════════════════════════════════');
+            console.log('SCALE DETECTION ANALYSIS');
+            console.log('Image size:', width + 'x' + height);
+            console.log('═══════════════════════════════════════');
+            
+            // Try multiple detection methods
+            const edgeScale = detectScaleByEdgeSpacing(imageData);
+            const blockScale = detectScaleByColorBlocks(imageData);
+            const freqScale = detectScaleByFrequencyAnalysis(imageData);
+            
+            console.log('Method results:');
+            console.log('  • Edge Spacing:      ' + (edgeScale || 'failed') + 'x');
+            console.log('  • Color Blocks:      ' + (blockScale || 'failed') + 'x');
+            console.log('  • Frequency Analysis:' + (freqScale || 'failed') + 'x');
+            
+            const methods = [edgeScale, blockScale, freqScale];
+            
+            // Use the most common result, or the median
+            const validScales = methods.filter(s => s > 0);
+            if (validScales.length === 0) {
+                console.log('⚠️ No methods succeeded, defaulting to 1x');
+                console.log('═══════════════════════════════════════');
+                return 1;
+            }
+            
+            // Return the most common scale
+            const counts = {};
+            validScales.forEach(s => counts[s] = (counts[s] || 0) + 1);
+            const mostCommon = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+            
+            console.log('✓ Final detected scale: ' + mostCommon + 'x');
+            console.log('  Native resolution: ' + Math.floor(width / mostCommon) + 'x' + Math.floor(height / mostCommon));
+            console.log('═══════════════════════════════════════');
+            
+            return parseInt(mostCommon);
+        }
+
+        // Method 1: Detect by analyzing edge spacing
+        function detectScaleByEdgeSpacing(imageData) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            // Sample multiple horizontal lines for better accuracy
+            const allDistances = [];
+            const sampleLines = [0.3, 0.5, 0.7];
+            
+            for (let ySample of sampleLines) {
+                const y = Math.floor(height * ySample);
+                const edgePositions = [];
+                
+                // Find edges (significant color changes) - LOWERED threshold for subtle edges
+                for (let x = 1; x < width; x++) {
+                    const idx1 = (y * width + (x - 1)) * 4;
+                    const idx2 = (y * width + x) * 4;
+                    
+                    const diff = Math.abs(data[idx1] - data[idx2]) +
+                                Math.abs(data[idx1 + 1] - data[idx2 + 1]) +
+                                Math.abs(data[idx1 + 2] - data[idx2 + 2]);
+                    
+                    if (diff > 20) { // Lowered from 30 to catch subtle edges
+                        edgePositions.push(x);
+                    }
+                }
+                
+                // Calculate distances between edges
+                for (let i = 1; i < edgePositions.length; i++) {
+                    const dist = edgePositions[i] - edgePositions[i - 1];
+                    if (dist >= 2 && dist <= 20) {
+                        allDistances.push(dist);
+                    }
+                }
+            }
+            
+            if (allDistances.length < 3) return 0;
+            
+            // Find the most common distance (within ±1 tolerance)
+            const distCounts = {};
+            allDistances.forEach(d => {
+                for (let tolerance = -1; tolerance <= 1; tolerance++) {
+                    const key = d + tolerance;
+                    distCounts[key] = (distCounts[key] || 0) + 1;
+                }
+            });
+            
+            const entries = Object.entries(distCounts);
+            if (entries.length === 0) return 0;
+            
+            const mostCommonDist = parseInt(entries.sort((a, b) => b[1] - a[1])[0][0]);
+            
+            // Common distance should be the scale factor
+            return mostCommonDist >= 2 && mostCommonDist <= 20 ? mostCommonDist : 0;
+        }
+
+        // Method 2: Detect by analyzing color block sizes
+        function detectScaleByColorBlocks(imageData) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            // Sample from multiple positions - increased sample count
+            const samples = [
+                { x: Math.floor(width * 0.2), y: Math.floor(height * 0.3) },
+                { x: Math.floor(width * 0.3), y: Math.floor(height * 0.5) },
+                { x: Math.floor(width * 0.5), y: Math.floor(height * 0.3) },
+                { x: Math.floor(width * 0.5), y: Math.floor(height * 0.7) },
+                { x: Math.floor(width * 0.7), y: Math.floor(height * 0.5) }
+            ];
+            
+            const detectedScales = [];
+            
+            for (let sample of samples) {
+                let { x, y } = sample;
+                if (x >= width - 20 || y >= height - 20) continue;
+                
+                // Get the color at this point
+                const refIdx = (y * width + x) * 4;
+                const refR = data[refIdx];
+                const refG = data[refIdx + 1];
+                const refB = data[refIdx + 2];
+                
+                // Measure how far we can go horizontally before color changes significantly
+                let blockWidth = 0;
+                const tolerance = 30; // INCREASED from 15 to handle JPEG artifacts better
+                
+                for (let dx = 0; dx < 20; dx++) {
+                    const idx = (y * width + (x + dx)) * 4;
+                    const diff = Math.abs(data[idx] - refR) +
+                                Math.abs(data[idx + 1] - refG) +
+                                Math.abs(data[idx + 2] - refB);
+                    
+                    if (diff < tolerance) {
+                        blockWidth++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (blockWidth >= 2 && blockWidth <= 20) {
+                    detectedScales.push(blockWidth);
+                }
+            }
+            
+            if (detectedScales.length === 0) return 0;
+            
+            // Return the most common value (mode) instead of median
+            const counts = {};
+            detectedScales.forEach(s => counts[s] = (counts[s] || 0) + 1);
+            const mode = parseInt(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
+            
+            return mode;
+        }
+
+        // Method 3: Frequency analysis - look for repeating patterns
+        function detectScaleByFrequencyAnalysis(imageData) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            // Sample multiple rows for better accuracy
+            const testRows = [0.3, 0.5, 0.7];
+            const scaleVotes = {};
+            
+            for (let rowSample of testRows) {
+                const y = Math.floor(height * rowSample);
+                const brightness = [];
+                
+                for (let x = 0; x < Math.min(width, 200); x++) {
+                    const idx = (y * width + x) * 4;
+                    brightness.push(data[idx] + data[idx + 1] + data[idx + 2]);
+                }
+                
+                // Try different scales and see which gives the most consistent pattern
+                let bestScale = 0;
+                let lowestVariance = Infinity;
+                
+                for (let scale = 2; scale <= 20; scale++) {
+                    if (brightness.length < scale * 3) continue;
+                    
+                    // Group pixels by their position within the scale block
+                    const groups = [];
+                    for (let i = 0; i < scale; i++) {
+                        groups[i] = [];
+                    }
+                    
+                    for (let i = 0; i < brightness.length; i++) {
+                        groups[i % scale].push(brightness[i]);
+                    }
+                    
+                    // Calculate variance within each group
+                    let totalVariance = 0;
+                    for (let group of groups) {
+                        if (group.length < 2) continue;
+                        const mean = group.reduce((a, b) => a + b, 0) / group.length;
+                        const variance = group.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / group.length;
+                        totalVariance += variance;
+                    }
+                    
+                    if (totalVariance < lowestVariance) {
+                        lowestVariance = totalVariance;
+                        bestScale = scale;
+                    }
+                }
+                
+                // Vote for this scale if variance is reasonable (INCREASED threshold from 5000 to 10000)
+                if (lowestVariance < 10000 && bestScale > 0) {
+                    scaleVotes[bestScale] = (scaleVotes[bestScale] || 0) + 1;
+                }
+            }
+            
+            // Return the scale with most votes
+            const entries = Object.entries(scaleVotes);
+            if (entries.length === 0) return 0;
+            
+            const winner = entries.sort((a, b) => b[1] - a[1])[0];
+            return parseInt(winner[0]);
+        }
+
+        // Downscale image by factor
+        function downscaleImage(sourceImage, scale) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = Math.floor(sourceImage.width / scale);
+            canvas.height = Math.floor(sourceImage.height / scale);
+            
+            // Draw source image
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = sourceImage.width;
+            tempCanvas.height = sourceImage.height;
+            tempCtx.drawImage(sourceImage, 0, 0);
+            
+            const sourceData = tempCtx.getImageData(0, 0, sourceImage.width, sourceImage.height);
+            const destData = ctx.createImageData(canvas.width, canvas.height);
+            
+            // Sample one pixel from each scale x scale block
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const srcX = x * scale;
+                    const srcY = y * scale;
+                    const srcIdx = (srcY * sourceImage.width + srcX) * 4;
+                    const destIdx = (y * canvas.width + x) * 4;
+                    
+                    destData.data[destIdx] = sourceData.data[srcIdx];
+                    destData.data[destIdx + 1] = sourceData.data[srcIdx + 1];
+                    destData.data[destIdx + 2] = sourceData.data[srcIdx + 2];
+                    destData.data[destIdx + 3] = sourceData.data[srcIdx + 3];
+                }
+            }
+            
+            ctx.putImageData(destData, 0, 0);
+            
+            const result = new Image();
+            result.src = canvas.toDataURL();
+            return result;
+        }
+
+        // Find the actual split point between two halves
+        // Analyze which side is more "blurry" (CRT render) vs sharp (pixel art)
+        function analyzeSharpness(imageData) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            let totalVariance = 0;
+            let samples = 0;
+            
+            // Sample variance across edges
+            for (let y = 1; y < height - 1; y += 4) {
+                for (let x = 1; x < width - 1; x += 4) {
+                    const idx = (y * width + x) * 4;
+                    const rightIdx = (y * width + (x + 1)) * 4;
+                    const downIdx = ((y + 1) * width + x) * 4;
+                    
+                    const diffR = Math.abs(data[idx] - data[rightIdx]) + Math.abs(data[idx] - data[downIdx]);
+                    const diffG = Math.abs(data[idx + 1] - data[rightIdx + 1]) + Math.abs(data[idx + 1] - data[downIdx + 1]);
+                    const diffB = Math.abs(data[idx + 2] - data[rightIdx + 2]) + Math.abs(data[idx + 2] - data[downIdx + 2]);
+                    
+                    totalVariance += diffR + diffG + diffB;
+                    samples++;
+                }
+            }
+            
+            return totalVariance / samples;
+        }
+
+        // Detect the vertical split line in a combined image
+        // Detect if a column has uniform color (likely part of the dividing line)
+        function analyzeColumnUniformity(imageData, x) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            if (x >= width) return 0;
+            
+            let totalDiff = 0;
+            const sampleCount = Math.min(50, height);
+            const step = Math.floor(height / sampleCount);
+            
+            for (let i = 0; i < sampleCount - 1; i++) {
+                const y1 = i * step;
+                const y2 = (i + 1) * step;
+                
+                const idx1 = (y1 * width + x) * 4;
+                const idx2 = (y2 * width + x) * 4;
+                
+                const diff = Math.abs(data[idx1] - data[idx2]) +
+                            Math.abs(data[idx1 + 1] - data[idx2 + 1]) +
+                            Math.abs(data[idx1 + 2] - data[idx2 + 2]);
+                
+                totalDiff += diff;
+            }
+            
+            return totalDiff / sampleCount;
+        }
+
+        // Detect pixel art vs CRT by analyzing block uniformity
+        function analyzeBlockUniformity(imageData) {
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            let uniformBlocks = 0;
+            let totalBlocks = 0;
+            const blockSize = 8;
+            
+            // Sample blocks across the image
+            for (let y = 0; y < height - blockSize; y += blockSize * 2) {
+                for (let x = 0; x < width - blockSize; x += blockSize * 2) {
+                    // Check if this block is relatively uniform
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    
+                    let isUniform = true;
+                    let samples = 0;
+                    
+                    for (let dy = 0; dy < blockSize && isUniform; dy += 2) {
+                        for (let dx = 0; dx < blockSize && isUniform; dx += 2) {
+                            const checkIdx = ((y + dy) * width + (x + dx)) * 4;
+                            const diff = Math.abs(data[checkIdx] - r) +
+                                       Math.abs(data[checkIdx + 1] - g) +
+                                       Math.abs(data[checkIdx + 2] - b);
+                            
+                            if (diff > 30) isUniform = false;
+                            samples++;
+                        }
+                    }
+                    
+                    if (isUniform) uniformBlocks++;
+                    totalBlocks++;
+                }
+            }
+            
+            return totalBlocks > 0 ? uniformBlocks / totalBlocks : 0;
+        }
+
+        function detectSplitLine(canvas, ctx) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const imageData = ctx.getImageData(0, 0, width, height);
+            
+            // Strategy 1: Find the darkest vertical line (often a separator)
+            let darkestColumn = -1;
+            let minBrightness = Infinity;
+            
+            const centerX = Math.floor(width / 2);
+            const searchRange = Math.floor(width * 0.25); // Search ±25%
+            
+            for (let x = centerX - searchRange; x < centerX + searchRange; x++) {
+                const uniformity = analyzeColumnUniformity(imageData, x);
+                
+                // Very uniform column likely a divider (all black or all same color)
+                if (uniformity < 5) { // Very low variance
+                    const data = imageData.data;
+                    let brightness = 0;
+                    const samples = 10;
+                    
+                    for (let i = 0; i < samples; i++) {
+                        const y = Math.floor((height / samples) * i);
+                        const idx = (y * width + x) * 4;
+                        brightness += data[idx] + data[idx + 1] + data[idx + 2];
+                    }
+                    
+                    if (brightness < minBrightness) {
+                        minBrightness = brightness;
+                        darkestColumn = x;
+                    }
+                }
+            }
+            
+            // Strategy 2: Find maximum difference in block uniformity
+            let maxUniformityDiff = 0;
+            let bestSplitByUniformity = centerX;
+            
+            for (let splitX = centerX - searchRange; splitX < centerX + searchRange; splitX += 3) {
+                const leftData = ctx.getImageData(0, 0, splitX, height);
+                const rightData = ctx.getImageData(splitX, 0, width - splitX, height);
+                
+                const leftUniformity = analyzeBlockUniformity(leftData);
+                const rightUniformity = analyzeBlockUniformity(rightData);
+                
+                // Pixel art should have higher block uniformity (repeating pixels)
+                // CRT should have lower uniformity (blur, scanlines, noise)
+                const diff = Math.abs(leftUniformity - rightUniformity);
+                
+                if (diff > maxUniformityDiff) {
+                    maxUniformityDiff = diff;
+                    bestSplitByUniformity = splitX;
+                }
+            }
+            
+            // Use darkest column if found, otherwise use uniformity method
+            let bestSplit = darkestColumn > 0 ? darkestColumn : bestSplitByUniformity;
+            
+            console.log('Split detection:', {
+                method: darkestColumn > 0 ? 'dark-column' : 'uniformity',
+                position: bestSplit,
+                percentage: ((bestSplit / width) * 100).toFixed(1) + '%',
+                centerOffset: bestSplit - centerX,
+                darkColumn: darkestColumn,
+                uniformitySplit: bestSplitByUniformity
+            });
+            
+            return bestSplit;
+        }
+
+        // Process combined image
+        function processCombinedImage(img) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            
+            // Detect the split line
+            const splitX = detectSplitLine(canvas, ctx);
+            
+            // Extract left and right halves using detected split
+            const leftWidth = splitX;
+            const rightWidth = img.width - splitX;
+            
+            const leftData = ctx.getImageData(0, 0, leftWidth, img.height);
+            const rightData = ctx.getImageData(splitX, 0, rightWidth, img.height);
+            
+            // Analyze which side is CRT vs pixel art using multiple metrics
+            const leftSharpness = analyzeSharpness(leftData);
+            const rightSharpness = analyzeSharpness(rightData);
+            const leftUniformity = analyzeBlockUniformity(leftData);
+            const rightUniformity = analyzeBlockUniformity(rightData);
+            
+            console.log('Analysis:', {
+                left: { sharpness: leftSharpness, uniformity: leftUniformity },
+                right: { sharpness: rightSharpness, uniformity: rightUniformity }
+            });
+            
+            let pixelArtData, crtData;
+            
+            // Pixel art has higher block uniformity (repeating pixel blocks)
+            // CRT has lower uniformity (blur, glow, scanlines create gradients)
+            if (leftUniformity > rightUniformity) {
+                pixelArtData = leftData;
+                crtData = rightData;
+                console.log('Detected: Left=PixelArt, Right=CRT');
+            } else {
+                pixelArtData = rightData;
+                crtData = leftData;
+                console.log('Detected: Left=CRT, Right=PixelArt');
+            }
+            
+            // Detect pixel art scale
+            const scale = detectPixelArtScale(pixelArtData);
+            detectedScale = scale;
+            console.log('Detected pixel art scale:', scale + 'x');
+            
+            // Show scale controls and detected value
+            document.getElementById('scaleControls').style.display = 'block';
+            document.getElementById('detectedScale').textContent = `Auto-detected: ${scale}x (Width: ${pixelArtData.width} → ${Math.floor(pixelArtData.width / scale)}px)`;
+            document.getElementById('manualScale').value = scale;
+            
+            // Create images from the data
+            const createImageFromData = (imageData) => {
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = imageData.width;
+                tempCanvas.height = imageData.height;
+                tempCtx.putImageData(imageData, 0, 0);
+                
+                const tempImg = new Image();
+                tempImg.src = tempCanvas.toDataURL();
+                return tempImg;
+            };
+            
+            const pixelArtImageFull = createImageFromData(pixelArtData);
+            const crtImage = createImageFromData(crtData);
+            
+            // Wait for images to load, then process
+            let loadedCount = 0;
+            const onLoad = () => {
+                loadedCount++;
+                if (loadedCount === 2) {
+                    // Store the full resolution image for reprocessing
+                    currentPixelArtFull = pixelArtImageFull;
+                    
+                    // Process pixel art through WASM worker for accurate pixel snapping
+                    processPixelArtWithWASM(pixelArtImageFull, scale);
+                    
+                    // Load CRT as reference
+                    loadReference(crtImage);
+                }
+            };
+            
+            pixelArtImageFull.onload = onLoad;
+            crtImage.onload = onLoad;
+        }
+
+        // Process pixel art using WASM (main thread) for accurate pixel snapping
+        async function processPixelArtWithWASM(img, detectedScale) {
+            try {
+                document.getElementById('previewInfo').textContent = 'Processing...';
+                
+                // Convert image to PNG blob then to arrayBuffer
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                tempCtx.drawImage(img, 0, 0);
+                
+                const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/png'));
+                const arrayBuffer = await blob.arrayBuffer();
+                
+                // Try WASM worker first if available
+                if (wasmAvailable && pixelSnapWorker) {
+                    try {
+                        const kColors = 32;
+                        const id = crypto.randomUUID();
+                        console.log('Processing with WASM worker...');
+                        
+                        // Set up one-time message handler
+                        const resultPromise = new Promise((resolve, reject) => {
+                            const handleMessage = (event) => {
+                                const { id: responseId, success, result, error } = event.data;
+                                
+                                if (responseId === id) {
+                                    pixelSnapWorker.removeEventListener('message', handleMessage);
+                                    
+                                    if (success && result) {
+                                        resolve(result);
+                                    } else {
+                                        reject(new Error(error || 'WASM processing failed'));
+                                    }
+                                }
+                            };
+                            
+                            pixelSnapWorker.addEventListener('message', handleMessage);
+                            
+                            // Timeout after 10 seconds
+                            setTimeout(() => {
+                                pixelSnapWorker.removeEventListener('message', handleMessage);
+                                reject(new Error('WASM processing timeout'));
+                            }, 10000);
+                        });
+                        
+                        // Send to worker
+                        pixelSnapWorker.postMessage({ id, imageData: arrayBuffer, kColors });
+                        
+                        // Wait for result
+                        const resultData = await resultPromise;
+                        
+                        console.log('✅ WASM processing complete!');
+                        
+                        // Convert result to blob and image
+                        const uint8Array = new Uint8Array(resultData);
+                        const resultBlob = new Blob([uint8Array], { type: 'image/png' });
+                        const resultUrl = URL.createObjectURL(resultBlob);
+                        
+                        const finalPixelArt = new Image();
+                        finalPixelArt.onload = () => {
+                            console.log('Extracted pixel art:', finalPixelArt.width + 'x' + finalPixelArt.height);
+                            loadPixelArt(finalPixelArt);
+                        };
+                        finalPixelArt.src = resultUrl;
+                        return;
+                        
+                    } catch (wasmError) {
+                        console.warn('WASM worker failed, using fallback:', wasmError.message);
+                    }
+                }
+                
+                // Fallback to manual downscaling
+                console.log('Using fallback pixel detection (scale: ' + detectedScale + 'x)');
+                if (detectedScale > 1) {
+                    const fallback = downscaleImage(img, detectedScale);
+                    fallback.onload = () => {
+                        console.log('Extracted pixel art (fallback):', fallback.width + 'x' + fallback.height);
+                        loadPixelArt(fallback);
+                    };
+                } else {
+                    console.log('No scaling detected, using original');
+                    loadPixelArt(img);
+                }
+                
+            } catch (error) {
+                console.error('Processing error:', error);
+                // Ultimate fallback: just use the original image
+                loadPixelArt(img);
+            }
+        }
+
+        // Helper functions to load images
+        function loadPixelArt(img) {
+            pixelArtImage = img;
+            
+            const canvas = document.getElementById('crtCanvas');
+            canvas.style.display = 'block';
+            canvas.style.transform = 'scale(1)';
+            zoom = 1.0;
+            document.querySelector('#canvasContainer .placeholder').style.display = 'none';
+            
+            document.getElementById('previewInfo').textContent = `${img.width} × ${img.height}px`;
+            updateZoomDisplay();
+            
+            render();
+        }
+
+        function loadReference(img) {
+            const refImg = document.getElementById('referenceImage');
+            refImg.src = img.src;
+            refImg.style.display = 'block';
+            refImg.style.transform = 'scale(1)';
+            refZoom = 1.0;
+            document.querySelector('#referenceContainer .placeholder').style.display = 'none';
+            
+            document.getElementById('refInfo').textContent = `${img.width} × ${img.height}px`;
+            document.getElementById('refZoomLevel').textContent = '100%';
+        }
+
+        // Manual scale override
+        document.getElementById('applyScale').addEventListener('click', () => {
+            if (!currentPixelArtFull) {
+                alert('Please load a combined image first');
+                return;
+            }
+            
+            const manualScale = parseInt(document.getElementById('manualScale').value);
+            if (manualScale < 1 || manualScale > 20) {
+                alert('Scale must be between 1 and 20');
+                return;
+            }
+            
+            console.log('Applying manual scale:', manualScale + 'x');
+            
+            // Update detected scale display
+            const originalWidth = currentPixelArtFull.width;
+            document.getElementById('detectedScale').textContent = 
+                `Manual override: ${manualScale}x (Width: ${originalWidth} → ${Math.floor(originalWidth / manualScale)}px)`;
+            
+            // Reprocess with new scale
+            let finalPixelArt;
+            if (manualScale > 1) {
+                finalPixelArt = downscaleImage(currentPixelArtFull, manualScale);
+                finalPixelArt.onload = () => {
+                    console.log('Reprocessed pixel art:', finalPixelArt.width + 'x' + finalPixelArt.height);
+                    loadPixelArt(finalPixelArt);
+                };
+            } else {
+                loadPixelArt(currentPixelArtFull);
+            }
+        });
+
+        // Load combined image
+        document.getElementById('combinedInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    processCombinedImage(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Load pixel art
+        document.getElementById('pixelArtInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadPixelArt(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Load reference image
+        document.getElementById('referenceInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadReference(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Zoom controls
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            zoom = Math.min(zoom * 1.5, 20); // Max 2000% zoom
+            const canvas = document.getElementById('crtCanvas');
+            canvas.style.transform = `scale(${zoom})`;
+            updateZoomDisplay();
+        });
+
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            zoom = Math.max(zoom / 1.5, 0.1); // Min 10% zoom
+            const canvas = document.getElementById('crtCanvas');
+            canvas.style.transform = `scale(${zoom})`;
+            updateZoomDisplay();
+        });
+
+        // Mouse wheel zoom
+        document.getElementById('canvasContainer').addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.max(0.1, Math.min(20, zoom * delta));
+            const canvas = document.getElementById('crtCanvas');
+            canvas.style.transform = `scale(${zoom})`;
+            updateZoomDisplay();
+        });
+
+        // Reference image zoom controls
+        document.getElementById('refZoomIn').addEventListener('click', () => {
+            refZoom = Math.min(refZoom * 1.5, 20);
+            const img = document.getElementById('referenceImage');
+            img.style.transform = `scale(${refZoom})`;
+            document.getElementById('refZoomLevel').textContent = Math.round(refZoom * 100) + '%';
+        });
+
+        document.getElementById('refZoomOut').addEventListener('click', () => {
+            refZoom = Math.max(refZoom / 1.5, 0.1);
+            const img = document.getElementById('referenceImage');
+            img.style.transform = `scale(${refZoom})`;
+            document.getElementById('refZoomLevel').textContent = Math.round(refZoom * 100) + '%';
+        });
+
+        // Reference mouse wheel zoom
+        document.getElementById('referenceContainer').addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            refZoom = Math.max(0.1, Math.min(20, refZoom * delta));
+            const img = document.getElementById('referenceImage');
+            img.style.transform = `scale(${refZoom})`;
+            document.getElementById('refZoomLevel').textContent = Math.round(refZoom * 100) + '%';
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '+' || e.key === '=') {
+                document.getElementById('zoomIn').click();
+            } else if (e.key === '-' || e.key === '_') {
+                document.getElementById('zoomOut').click();
+            } else if (e.key === '0') {
+                zoom = 1;
+                const canvas = document.getElementById('crtCanvas');
+                canvas.style.transform = `scale(${zoom})`;
+                updateZoomDisplay();
+            }
+        });
+
+        // CRT Parameter Controls
+        const rgbMaskSlider = document.getElementById('rgbMaskSlider');
+        const rgbMaskInput = document.getElementById('rgbMaskInput');
+        
+        // Sync slider and input
+        rgbMaskSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            rgbMaskInput.value = value.toFixed(2);
+            crtParams.rgbMaskStrength = value;
+            render();
+        });
+        
+        rgbMaskInput.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(1, value)); // Clamp 0-1
+            rgbMaskSlider.value = value;
+            crtParams.rgbMaskStrength = value;
+            render();
+        });
+        
+        // Phosphor Gap Controls
+        const phosphorGapSlider = document.getElementById('phosphorGapSlider');
+        const phosphorGapInput = document.getElementById('phosphorGapInput');
+        
+        phosphorGapSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            phosphorGapInput.value = value.toFixed(2);
+            crtParams.phosphorGap = value;
+            render();
+        });
+        
+        phosphorGapInput.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(0.5, value)); // Clamp 0-0.5
+            phosphorGapSlider.value = value;
+            crtParams.phosphorGap = value;
+            render();
+        });
+        
+        // Phosphor Roundness Controls
+        const phosphorRoundnessSlider = document.getElementById('phosphorRoundnessSlider');
+        const phosphorRoundnessInput = document.getElementById('phosphorRoundnessInput');
+        
+        phosphorRoundnessSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            phosphorRoundnessInput.value = value.toFixed(2);
+            crtParams.phosphorRoundness = value;
+            render();
+        });
+        
+        phosphorRoundnessInput.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(1, value)); // Clamp 0-1
+            phosphorRoundnessSlider.value = value;
+            crtParams.phosphorRoundness = value;
+            render();
+        });
+
+        // Initialize
+        initWebGL();
+    </script>
+</body>
+</html>
