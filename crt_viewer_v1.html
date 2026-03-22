@@ -424,6 +424,81 @@
                 >
                 <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Controls the edge softness of phosphor strips. 0 = sharp rectangular, 1 = soft rounded edges like real CRT phosphors.</p>
             </div>
+
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 14px; color: #e0e0e0;">Scanline Strength</label>
+                    <input
+                        type="number"
+                        id="scanlineInput"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value="0.75"
+                        style="width: 80px; background: #0a0a0a; border: 1px solid #555; color: white; padding: 6px; border-radius: 4px; font-size: 13px;"
+                    >
+                </div>
+                <input
+                    type="range"
+                    id="scanlineSlider"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.75"
+                    style="width: 100%; height: 6px; background: #444; outline: none; border-radius: 3px; cursor: pointer;"
+                >
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Horizontal dark bands between pixel rows. Real CRT electron beams don't illuminate the full screen height uniformly.</p>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 14px; color: #e0e0e0;">Bloom Strength</label>
+                    <input
+                        type="number"
+                        id="bloomStrengthInput"
+                        min="0"
+                        max="3"
+                        step="0.1"
+                        value="1.2"
+                        style="width: 80px; background: #0a0a0a; border: 1px solid #555; color: white; padding: 6px; border-radius: 4px; font-size: 13px;"
+                    >
+                </div>
+                <input
+                    type="range"
+                    id="bloomStrengthSlider"
+                    min="0"
+                    max="3"
+                    step="0.1"
+                    value="1.2"
+                    style="width: 100%; height: 6px; background: #444; outline: none; border-radius: 3px; cursor: pointer;"
+                >
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Bright areas glow and bleed into surrounding pixels, simulating CRT phosphor persistence and electron beam spread.</p>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 14px; color: #e0e0e0;">Bloom Threshold</label>
+                    <input
+                        type="number"
+                        id="bloomThresholdInput"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value="0.4"
+                        style="width: 80px; background: #0a0a0a; border: 1px solid #555; color: white; padding: 6px; border-radius: 4px; font-size: 13px;"
+                    >
+                </div>
+                <input
+                    type="range"
+                    id="bloomThresholdSlider"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.4"
+                    style="width: 100%; height: 6px; background: #444; outline: none; border-radius: 3px; cursor: pointer;"
+                >
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">Minimum brightness before a pixel contributes to bloom. Lower = more areas glow; higher = only the brightest spots bloom.</p>
+            </div>
         </div>
     </div>
 
@@ -475,46 +550,34 @@
             }
         `;
 
+        // Pass 1: RGB aperture grille mask + scanlines
         const fragmentShaderSource = `
             precision mediump float;
             uniform sampler2D uTexture;
-            uniform vec2 uResolution;      // Canvas resolution (3x width for RGB)
-            uniform vec2 uSourceResolution; // Source pixel art resolution
-            uniform float uRGBMaskStrength; // Strength of RGB sub-pixel mask (0-1)
-            uniform float uPhosphorGap;     // Gap between phosphor strips (0-1)
-            uniform float uPhosphorRoundness; // Roundness of phosphor edges (0-1)
+            uniform vec2 uResolution;
+            uniform vec2 uSourceResolution;
+            uniform float uRGBMaskStrength;
+            uniform float uPhosphorGap;
+            uniform float uPhosphorRoundness;
+            uniform float uScanlineStrength;
             varying vec2 vUv;
-            
+
             void main() {
-                // Sample the texture
                 vec3 col = texture2D(uTexture, vUv).rgb;
-                
+
                 // RGB SUB-PIXEL MASK WITH REALISTIC PHOSPHOR STRIPS
                 if (uRGBMaskStrength > 0.0) {
-                    // Get the x position in canvas pixels
                     float xPos = gl_FragCoord.x;
-                    
-                    // Each source pixel occupies 3 canvas pixels
-                    // Get position within the 3-pixel group (0.0 to 3.0)
                     float posInGroup = mod(xPos, 3.0);
-                    
-                    // Define which phosphor we're in
                     vec3 mask = vec3(0.0);
                     float phosphorIntensity = 0.0;
-                    
-                    // Calculate gap size (in pixels, typically 0.1 to 0.3)
-                    float gapSize = uPhosphorGap * 0.5; // Half gap on each side
-                    
+                    float gapSize = uPhosphorGap * 0.5;
+
                     // Red phosphor (0.0 to 1.0)
                     if (posInGroup < 1.0) {
-                        // Distance from center of red strip (0.5)
                         float distFromCenter = abs(posInGroup - 0.5);
-                        // Usable width after accounting for gaps
                         float stripWidth = 0.5 - gapSize;
-                        
                         if (distFromCenter < stripWidth) {
-                            // Inside the phosphor strip
-                            // Apply roundness to edges
                             float edgeDist = (stripWidth - distFromCenter) / stripWidth;
                             phosphorIntensity = mix(edgeDist, 1.0, 1.0 - uPhosphorRoundness);
                             phosphorIntensity = smoothstep(0.0, 0.3, phosphorIntensity);
@@ -525,7 +588,6 @@
                     else if (posInGroup < 2.0) {
                         float distFromCenter = abs(posInGroup - 1.5);
                         float stripWidth = 0.5 - gapSize;
-                        
                         if (distFromCenter < stripWidth) {
                             float edgeDist = (stripWidth - distFromCenter) / stripWidth;
                             phosphorIntensity = mix(edgeDist, 1.0, 1.0 - uPhosphorRoundness);
@@ -537,7 +599,6 @@
                     else {
                         float distFromCenter = abs(posInGroup - 2.5);
                         float stripWidth = 0.5 - gapSize;
-                        
                         if (distFromCenter < stripWidth) {
                             float edgeDist = (stripWidth - distFromCenter) / stripWidth;
                             phosphorIntensity = mix(edgeDist, 1.0, 1.0 - uPhosphorRoundness);
@@ -545,26 +606,108 @@
                             mask = vec3(0.0, 0.0, 1.0);
                         }
                     }
-                    
-                    // Apply mask with intensity and strength control
+
                     vec3 maskedColor = col * mask * phosphorIntensity;
                     col = mix(col, maskedColor, uRGBMaskStrength);
                 }
-                
+
+                // SCANLINES - horizontal dark bands between pixel rows
+                // Each source pixel = 3 canvas rows; darken the top row of each group
+                if (uScanlineStrength > 0.0) {
+                    float posInRowGroup = mod(gl_FragCoord.y, 3.0);
+                    float scanlineFactor = 1.0 - step(2.0, posInRowGroup) * uScanlineStrength;
+                    col *= scanlineFactor;
+                }
+
                 gl_FragColor = vec4(col, 1.0);
+            }
+        `;
+
+        // Pass 2: Bloom / glow composite
+        const bloomShaderSource = `
+            precision mediump float;
+            uniform sampler2D uTexture;
+            uniform vec2 uTexelSize;
+            uniform float uBloomStrength;
+            uniform float uBloomThreshold;
+            varying vec2 vUv;
+
+            vec3 extractBright(vec2 uv) {
+                vec3 c = texture2D(uTexture, uv).rgb;
+                float brightness = max(max(c.r, c.g), c.b);
+                float excess = max(0.0, brightness - uBloomThreshold);
+                return c * (excess / max(brightness, 0.0001));
+            }
+
+            void main() {
+                vec3 original = texture2D(uTexture, vUv).rgb;
+
+                if (uBloomStrength > 0.0) {
+                    vec2 ts = uTexelSize;
+                    vec3 bloom = vec3(0.0);
+
+                    // Ring 1 – 1 texel: weight 0.8 / 0.5
+                    bloom += extractBright(vUv + vec2(-1.0,  0.0) * ts) * 0.8;
+                    bloom += extractBright(vUv + vec2( 1.0,  0.0) * ts) * 0.8;
+                    bloom += extractBright(vUv + vec2( 0.0, -1.0) * ts) * 0.8;
+                    bloom += extractBright(vUv + vec2( 0.0,  1.0) * ts) * 0.8;
+                    bloom += extractBright(vUv + vec2(-1.0, -1.0) * ts) * 0.5;
+                    bloom += extractBright(vUv + vec2( 1.0, -1.0) * ts) * 0.5;
+                    bloom += extractBright(vUv + vec2(-1.0,  1.0) * ts) * 0.5;
+                    bloom += extractBright(vUv + vec2( 1.0,  1.0) * ts) * 0.5;
+
+                    // Ring 2 – 3 texels: weight 0.4 / 0.25
+                    bloom += extractBright(vUv + vec2(-3.0,  0.0) * ts) * 0.4;
+                    bloom += extractBright(vUv + vec2( 3.0,  0.0) * ts) * 0.4;
+                    bloom += extractBright(vUv + vec2( 0.0, -3.0) * ts) * 0.4;
+                    bloom += extractBright(vUv + vec2( 0.0,  3.0) * ts) * 0.4;
+                    bloom += extractBright(vUv + vec2(-2.0, -2.0) * ts) * 0.25;
+                    bloom += extractBright(vUv + vec2( 2.0, -2.0) * ts) * 0.25;
+                    bloom += extractBright(vUv + vec2(-2.0,  2.0) * ts) * 0.25;
+                    bloom += extractBright(vUv + vec2( 2.0,  2.0) * ts) * 0.25;
+
+                    // Ring 3 – 5 texels: weight 0.15 / 0.08
+                    bloom += extractBright(vUv + vec2(-5.0,  0.0) * ts) * 0.15;
+                    bloom += extractBright(vUv + vec2( 5.0,  0.0) * ts) * 0.15;
+                    bloom += extractBright(vUv + vec2( 0.0, -5.0) * ts) * 0.15;
+                    bloom += extractBright(vUv + vec2( 0.0,  5.0) * ts) * 0.15;
+                    bloom += extractBright(vUv + vec2(-4.0, -4.0) * ts) * 0.08;
+                    bloom += extractBright(vUv + vec2( 4.0, -4.0) * ts) * 0.08;
+                    bloom += extractBright(vUv + vec2(-4.0,  4.0) * ts) * 0.08;
+                    bloom += extractBright(vUv + vec2( 4.0,  4.0) * ts) * 0.08;
+
+                    // Ring 4 – 8 texels: weight 0.05 / 0.03 (wide outer halo)
+                    bloom += extractBright(vUv + vec2(-8.0,  0.0) * ts) * 0.05;
+                    bloom += extractBright(vUv + vec2( 8.0,  0.0) * ts) * 0.05;
+                    bloom += extractBright(vUv + vec2( 0.0, -8.0) * ts) * 0.05;
+                    bloom += extractBright(vUv + vec2( 0.0,  8.0) * ts) * 0.05;
+                    bloom += extractBright(vUv + vec2(-6.0, -6.0) * ts) * 0.03;
+                    bloom += extractBright(vUv + vec2( 6.0, -6.0) * ts) * 0.03;
+                    bloom += extractBright(vUv + vec2(-6.0,  6.0) * ts) * 0.03;
+                    bloom += extractBright(vUv + vec2( 6.0,  6.0) * ts) * 0.03;
+
+                    bloom /= 8.0;
+                    original = original + bloom * uBloomStrength;
+                }
+
+                gl_FragColor = vec4(clamp(original, 0.0, 1.0), 1.0);
             }
         `;
 
         // State
         let gl, program, texture;
+        let bloomProgram, bloomFBO, bloomTexture;
         let pixelArtImage = null;
         let zoom = 1.0;
-        
+
         // CRT Effect Parameters
         let crtParams = {
-            rgbMaskStrength: 0.8,    // RGB sub-pixel mask intensity
+            rgbMaskStrength: 0.9,    // RGB sub-pixel mask intensity
             phosphorGap: 0.15,        // Gap between phosphor strips (0-1)
-            phosphorRoundness: 0.5    // Roundness of phosphor edges (0-1)
+            phosphorRoundness: 0.5,   // Roundness of phosphor edges (0-1)
+            scanlineStrength: 0.75,   // Scanline darkness (0=off, 1=fully dark)
+            bloomStrength: 1.2,       // Bloom/glow intensity
+            bloomThreshold: 0.4       // Brightness threshold to trigger bloom
         };
         let refZoom = 1.0;
         let currentPixelArtData = null; // Store the extracted pixel art ImageData for reprocessing
@@ -572,82 +715,127 @@
         let currentPixelArtFull = null; // Store full-res pixel art for reprocessing
         let detectedScale = 1;
 
-        // Initialize WebGL
+        // Initialize WebGL (two-pass: RGB mask+scanlines → bloom composite)
         function initWebGL() {
             const canvas = document.getElementById('crtCanvas');
             gl = canvas.getContext('webgl');
-            
+
             if (!gl) {
                 alert('WebGL not supported');
                 return;
             }
 
-            // Create shaders
-            const vertShader = gl.createShader(gl.VERTEX_SHADER);
-            gl.shaderSource(vertShader, vertexShaderSource);
-            gl.compileShader(vertShader);
+            function compileShader(type, src) {
+                const sh = gl.createShader(type);
+                gl.shaderSource(sh, src);
+                gl.compileShader(sh);
+                if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS))
+                    console.error('Shader error:', gl.getShaderInfoLog(sh));
+                return sh;
+            }
 
-            const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-            gl.shaderSource(fragShader, fragmentShaderSource);
-            gl.compileShader(fragShader);
+            function createProgram(vSrc, fSrc) {
+                const prog = gl.createProgram();
+                gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, vSrc));
+                gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fSrc));
+                gl.linkProgram(prog);
+                return prog;
+            }
 
-            // Create program
-            program = gl.createProgram();
-            gl.attachShader(program, vertShader);
-            gl.attachShader(program, fragShader);
-            gl.linkProgram(program);
-            gl.useProgram(program);
+            // Build both shader programs
+            program      = createProgram(vertexShaderSource, fragmentShaderSource);
+            bloomProgram = createProgram(vertexShaderSource, bloomShaderSource);
 
-            // Setup geometry
+            // Shared full-screen quad
             const buffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-                -1, -1,
-                1, -1,
-                -1, 1,
-                -1, 1,
-                1, -1,
-                1, 1
+                -1, -1,  1, -1, -1,  1,
+                -1,  1,  1, -1,  1,  1
             ]), gl.STATIC_DRAW);
 
-            const positionLocation = gl.getAttribLocation(program, 'position');
-            gl.enableVertexAttribArray(positionLocation);
-            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-            // Create texture
+            // Source pixel-art texture (NEAREST – crisp pixels)
             texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            // Use NEAREST filtering for sharp pixel art
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            // Intermediate framebuffer texture (LINEAR – smooth bloom sampling)
+            bloomTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, bloomTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+            // Framebuffer for pass 1 output
+            bloomFBO = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFBO);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bloomTexture, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
 
-        // Render loop
+        // Two-pass render: Pass 1 → FBO, Pass 2 → screen with bloom
         function render() {
             if (!pixelArtImage) return;
 
             const canvas = gl.canvas;
-            // Render at 3x resolution to show RGB sub-pixels while maintaining aspect ratio
-            canvas.width = pixelArtImage.width * 3;
-            canvas.height = pixelArtImage.height * 3;
+            const w = pixelArtImage.width * 3;
+            const h = pixelArtImage.height * 3;
 
-            gl.viewport(0, 0, canvas.width, canvas.height);
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+            }
+
+            // Resize intermediate texture to match canvas
+            gl.bindTexture(gl.TEXTURE_2D, bloomTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+            // ── PASS 1: RGB mask + scanlines → framebuffer ──
+            gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFBO);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bloomTexture, 0);
+            gl.viewport(0, 0, w, h);
             gl.useProgram(program);
 
-            // Update texture
+            gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixelArtImage);
 
-            // Set uniforms
+            const posLoc1 = gl.getAttribLocation(program, 'position');
+            gl.enableVertexAttribArray(posLoc1);
+            gl.vertexAttribPointer(posLoc1, 2, gl.FLOAT, false, 0, 0);
+
             gl.uniform1i(gl.getUniformLocation(program, 'uTexture'), 0);
-            gl.uniform2f(gl.getUniformLocation(program, 'uResolution'), canvas.width, canvas.height);
+            gl.uniform2f(gl.getUniformLocation(program, 'uResolution'), w, h);
             gl.uniform2f(gl.getUniformLocation(program, 'uSourceResolution'), pixelArtImage.width, pixelArtImage.height);
             gl.uniform1f(gl.getUniformLocation(program, 'uRGBMaskStrength'), crtParams.rgbMaskStrength);
             gl.uniform1f(gl.getUniformLocation(program, 'uPhosphorGap'), crtParams.phosphorGap);
             gl.uniform1f(gl.getUniformLocation(program, 'uPhosphorRoundness'), crtParams.phosphorRoundness);
-            
+            gl.uniform1f(gl.getUniformLocation(program, 'uScanlineStrength'), crtParams.scanlineStrength);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            // ── PASS 2: Bloom composite → screen ──
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, w, h);
+            gl.useProgram(bloomProgram);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, bloomTexture);
+
+            const posLoc2 = gl.getAttribLocation(bloomProgram, 'position');
+            gl.enableVertexAttribArray(posLoc2);
+            gl.vertexAttribPointer(posLoc2, 2, gl.FLOAT, false, 0, 0);
+
+            gl.uniform1i(gl.getUniformLocation(bloomProgram, 'uTexture'), 0);
+            gl.uniform2f(gl.getUniformLocation(bloomProgram, 'uTexelSize'), 1.0 / w, 1.0 / h);
+            gl.uniform1f(gl.getUniformLocation(bloomProgram, 'uBloomStrength'), crtParams.bloomStrength);
+            gl.uniform1f(gl.getUniformLocation(bloomProgram, 'uBloomThreshold'), crtParams.bloomThreshold);
+
             gl.drawArrays(gl.TRIANGLES, 0, 6);
 
             updateZoomDisplay();
@@ -1504,9 +1692,69 @@
         phosphorRoundnessInput.addEventListener('input', (e) => {
             let value = parseFloat(e.target.value);
             if (isNaN(value)) value = 0;
-            value = Math.max(0, Math.min(1, value)); // Clamp 0-1
+            value = Math.max(0, Math.min(1, value));
             phosphorRoundnessSlider.value = value;
             crtParams.phosphorRoundness = value;
+            render();
+        });
+
+        // Scanline Controls
+        const scanlineSlider = document.getElementById('scanlineSlider');
+        const scanlineInput  = document.getElementById('scanlineInput');
+
+        scanlineSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            scanlineInput.value = value.toFixed(2);
+            crtParams.scanlineStrength = value;
+            render();
+        });
+
+        scanlineInput.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(1, value));
+            scanlineSlider.value = value;
+            crtParams.scanlineStrength = value;
+            render();
+        });
+
+        // Bloom Strength Controls
+        const bloomStrengthSlider = document.getElementById('bloomStrengthSlider');
+        const bloomStrengthInput  = document.getElementById('bloomStrengthInput');
+
+        bloomStrengthSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            bloomStrengthInput.value = value.toFixed(1);
+            crtParams.bloomStrength = value;
+            render();
+        });
+
+        bloomStrengthInput.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(3, value));
+            bloomStrengthSlider.value = value;
+            crtParams.bloomStrength = value;
+            render();
+        });
+
+        // Bloom Threshold Controls
+        const bloomThresholdSlider = document.getElementById('bloomThresholdSlider');
+        const bloomThresholdInput  = document.getElementById('bloomThresholdInput');
+
+        bloomThresholdSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            bloomThresholdInput.value = value.toFixed(2);
+            crtParams.bloomThreshold = value;
+            render();
+        });
+
+        bloomThresholdInput.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(1, value));
+            bloomThresholdSlider.value = value;
+            crtParams.bloomThreshold = value;
             render();
         });
 
