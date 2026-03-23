@@ -1,0 +1,10 @@
+# Intermediate render test outputs
+compare_*.png
+shader_*.png
+comparison*.png
+debug_*.png
+reference_left.png
+
+# Keep final outputs
+!compare_final.png
+!shader_final.png
